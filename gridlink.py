@@ -307,7 +307,7 @@ class Gridlink:
                                type, record=False)
             n -= 1
 
-    def simplify(self, iterates=10000, lower_bound=3):
+    def simplify(self, iterates=10000, lower_bound=5):
         excluded = []
         while iterates:
             iterates -= 1
@@ -317,6 +317,13 @@ class Gridlink:
                 break
             # while self.destabilize_any(excluded):
             #     pass
+    
+    def legendrian_simplify(self, iterates=10000):
+        excluded = []
+        while iterates:
+            iterates -= 1
+            self.randomize()
+            self.destabilize_any(['NE', 'SW'])
             
     def print_moves(self):
         for move in self.moves:

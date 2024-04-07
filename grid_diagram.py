@@ -1,3 +1,5 @@
+import GridPythonModule as gp
+
 class HalfGridDiagram:
     """ A class representing half grid diagram.
 
@@ -105,3 +107,24 @@ class GridDiagram:
         print('+', end = '')
         print('-' * (self.grid_num * 2 + 1), end = '')
         print('+')
+
+    def fancy_visualize(self):
+        gp.draw_grid([self.Xlist, self.Olist])
+
+    def component_num(self):
+        return gp.number_of_components([self.Xlist, self.Olist])
+    
+    def simplify(self, effort='medium'):
+        small_G = gp.simplify_grid([self.Xlist, self.Olist], effort)
+        return GridDiagram(small_G[0], small_G[1])
+    
+    def flip(self):
+        return GridDiagram(self.Olist, self.Xlist)
+    
+    def rotate_clockwise(self):
+        Xlist = [None for _ in range(self.grid_num)]
+        Olist = [None for _ in range(self.grid_num)]
+        for i in range(self.grid_num):
+            Xlist[self.Xlist[i]] = self.grid_num - i - 1
+            Olist[self.Olist[i]] = self.grid_num - i - 1
+        return GridDiagram(Xlist, Olist)

@@ -2,7 +2,10 @@ from tree_diagram import *
 from grid_diagram import GridDiagram
 from gridlink import XOlink
 from progress.bar import Bar
+from ctypes import *
 import pickle
+import platform
+# import GridPythonModule as gp
 
 def generate_tree_list(leaf_num, mode = 'continue'):
     """ Generate lists of all trees with leaf numbers smaller than or equal to leaf_num, store them in /data/tree_list_i.p.
@@ -92,8 +95,8 @@ def generate_grid_diagram_list(leaf_num, tree_list):
     print()
     return grid_diagram_list
 
-def filter_nontrivial_knot(grid_diagram_list):
-    """ Filter nontrival knots in a given list of grid diagrams.
+def find_nontrivial_knot(grid_diagram_list, min_grid_num=5):
+    """ Find nontrival knots in a given list of grid diagrams.
 
     Args:
         grid_diagram_list (list): A list of GridDiagram objects.
@@ -108,17 +111,67 @@ def filter_nontrivial_knot(grid_diagram_list):
     for i in range(length):
         bar.next()
         gd = grid_diagram_list[i]
+        
+        # if gd.component_num() == 1:
+        #     sgd = gd.simplify(effort='low')
+        #     if sgd.grid_num >= min_grid_num:
+        #         nontrivial_list.append((gd, sgd))
+
         L = XOlink(gd.Xlist, gd.Olist)
         if L.components == 1:
-            L.simplify(1000)
-            if L.size >= 3:
+            L.simplify(1000, min_grid_num)
+            if L.size >= min_grid_num:
                 (Xlist, Olist) = L.get_XOlists()
                 sgd = GridDiagram(Xlist, Olist)
                 nontrivial_list.append((gd, sgd))
     print()
     return nontrivial_list
 
-def filter_equality_knot(leaf_num, grid_diagram_list, lower_bound):
+def find_URnonnull_knot(leaf_num, grid_diagram_list):
+    URnonnull_list = []
+    if platform.system() == 'Windows':
+        transverse = CDLL('transverse_'+str(leaf_num)+'.dll')
+    if platform.system() == 'Darwin':
+        transverse = CDLL('transverse_'+str(leaf_num)+'.dylib')
+    if platform.system() == 'Linux':
+        transverse = CDLL('transverse_'+str(leaf_num)+'.so')
+    bar = Bar("Searching UR non-null knots...", fill='$', max = len(grid_diagram_list), suffix = '%(index)d/%(max)d --- %(elapsed)ds')
+    for grid in grid_diagram_list:
+        bar.next()
+        Xlist = [i+1 for i in grid.rotate_clockwise().flip().Xlist]
+        Olist = [i+1 for i in grid.rotate_clockwise().flip().Olist]
+        transverse.change_Xs((c_byte * (leaf_num*2))(*Xlist))
+        transverse.change_Os((c_byte * (leaf_num*2))(*Olist))
+        if transverse.is_URnull() == 0:
+            print(Xlist)
+            print(Olist)
+            URnonnull_list.append(grid)
+    print()
+    return URnonnull_list
+
+def find_LLnonnull_knot(leaf_num, grid_diagram_list):
+    URnonnull_list = []
+    if platform.system() == 'Windows':
+        transverse = CDLL('transverse_'+str(leaf_num)+'.dll')
+    if platform.system() == 'Darwin':
+        transverse = CDLL('transverse_'+str(leaf_num)+'.dylib')
+    if platform.system() == 'Linux':
+        transverse = CDLL('transverse_'+str(leaf_num)+'.so')
+    bar = Bar("Searching LL non-null knots...", fill='$', max = len(grid_diagram_list), suffix = '%(index)d/%(max)d --- %(elapsed)ds')
+    for grid in grid_diagram_list:
+        bar.next()
+        Xlist = [i+1 for i in grid.rotate_clockwise().flip().Xlist]
+        Olist = [i+1 for i in grid.rotate_clockwise().flip().Olist]
+        transverse.change_Xs((c_byte * (leaf_num*2))(*Xlist))
+        transverse.change_Os((c_byte * (leaf_num*2))(*Olist))
+        if transverse.is_LLnull() == 0:
+            print(Xlist)
+            print(Olist)
+            URnonnull_list.append(grid)
+    print()
+    return URnonnull_list
+        
+def find_equality_knot(leaf_num, grid_diagram_list, min_grid_num=5):
     """ Find out knots satisfying leaf_num = - max tb in a given list of grid diagrams.
 
     Args:
@@ -136,9 +189,9 @@ def filter_equality_knot(leaf_num, grid_diagram_list, lower_bound):
         gd = grid_diagram_list[i]
         L = XOlink(gd.Xlist, gd.Olist)
         if L.components == 1:
-            L.simplify(1000, lower_bound)
+            L.simplify(1000, min_grid_num)
             arc_num = L.size
-            if arc_num >= lower_bound:
+            if arc_num >= min_grid_num:
                 # gd.visualize()
                 (Xlist, Olist) = L.get_XOlists()
                 sgd = GridDiagram(Xlist, Olist)
@@ -159,23 +212,32 @@ def filter_equality_knot(leaf_num, grid_diagram_list, lower_bound):
     return eq_list
 
 def main():
-    leaf_num = 9
+    leaf_num = 15
 
     tree_list_ready = generate_tree_list(leaf_num, mode = 'start')
     pickle.dump(tree_list_ready, open("data/tree_list_ready_" + str(leaf_num) + ".p", "wb"))
-    # tree_list_ready = pickle.load(open("code/data/tree_list_ready_" + str(leaf_num) + ".p", "rb")) 
+    # tree_list_ready = pickle.load(open("data/tree_list_ready_" + str(leaf_num) + ".p", "rb")) 
 
     grid_diagram_list = generate_grid_diagram_list(leaf_num, tree_list_ready)
     pickle.dump(grid_diagram_list, open("data/grid_diagram_list_" + str(leaf_num) + ".p", "wb"))
-    # grid_diagram_list = pickle.load(open("code/data/grid_diagram_list_" + str(leaf_num) + ".p", "rb")) 
+    # grid_diagram_list = pickle.load(open("data/grid_diagram_list_" + str(leaf_num) + ".p", "rb")) 
     
     print("Number of grid diagrams: ", len(grid_diagram_list))
 
-    nontrivial_list = filter_nontrivial_knot(grid_diagram_list)
-    # eq_list = filter_equality_knot(leaf_num, grid_diagram_list, lower_bound = 7)
+    nontrivial_list = find_nontrivial_knot(grid_diagram_list, 8)
+    pickle.dump(nontrivial_list, open("data/nontrivial_knot_list_" + str(leaf_num) + ".p", "wb"))
+    # nontrivial_list = pickle.load(open("data/nontrivial_knot_list_" + str(leaf_num) + ".p", "rb")) 
+
+    # eq_list = find_equality_knot(leaf_num, grid_diagram_list, lower_bound = 7)
     
     print("Number of nontrivial knots: ", len(nontrivial_list))
     # print("Number of eq knots: ", len(eq_list))
+
+    # URnonnull_list = find_URnonnull_knot(leaf_num, [g[0] for g in nontrivial_list])
+    # print("Number of URnonnull knots: ", len(URnonnull_list))
+
+    LLnonnull_list = find_LLnonnull_knot(leaf_num, [g[0] for g in nontrivial_list])
+    print("Number of LLnonnull knots: ", len(LLnonnull_list))
 
 if __name__ == '__main__':
     main()
