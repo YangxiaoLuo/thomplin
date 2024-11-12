@@ -1,4 +1,5 @@
 import GridPythonModule as gp
+from gridlink import XOlink
 
 class HalfGridDiagram:
     """ A class representing half grid diagram.
@@ -128,3 +129,17 @@ class GridDiagram:
             Xlist[self.Xlist[i]] = self.grid_num - i - 1
             Olist[self.Olist[i]] = self.grid_num - i - 1
         return GridDiagram(Xlist, Olist)
+    
+    def min_grid_num(self):
+        return(self.simplify().grid_num)
+    
+    def is_nontrivial_knot(self, min_grid_num):
+        L = XOlink(self.Xlist, self.Olist)
+        if L.components == 1:
+            L.simplify(1000, min_grid_num)
+            if L.size >= min_grid_num:
+                return True
+            else:
+                return False
+        else:
+            return False

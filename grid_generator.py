@@ -212,31 +212,72 @@ def find_equality_knot(leaf_num, grid_diagram_list, min_grid_num=5):
     return eq_list
 
 def main():
-    leaf_num = 15
+    leaf_num = 13
 
-    tree_list_ready = generate_tree_list(leaf_num, mode = 'start')
-    pickle.dump(tree_list_ready, open("data/tree_list_ready_" + str(leaf_num) + ".p", "wb"))
-    # tree_list_ready = pickle.load(open("data/tree_list_ready_" + str(leaf_num) + ".p", "rb")) 
+    # tree_list_ready = generate_tree_list(leaf_num, mode = 'start')
+    # pickle.dump(tree_list_ready, open("data/tree_list_ready_" + str(leaf_num) + ".p", "wb"))
+    tree_list_ready = pickle.load(open("data/tree_list_ready_" + str(leaf_num) + ".p", "rb")) 
 
-    grid_diagram_list = generate_grid_diagram_list(leaf_num, tree_list_ready)
-    pickle.dump(grid_diagram_list, open("data/grid_diagram_list_" + str(leaf_num) + ".p", "wb"))
+    # grid_diagram_list = generate_grid_diagram_list(leaf_num, tree_list_ready)
+    # pickle.dump(grid_diagram_list, open("data/grid_diagram_list_" + str(leaf_num) + ".p", "wb"))
     # grid_diagram_list = pickle.load(open("data/grid_diagram_list_" + str(leaf_num) + ".p", "rb")) 
     
-    print("Number of grid diagrams: ", len(grid_diagram_list))
+    # print("Number of grid diagrams: ", len(grid_diagram_list))
 
-    nontrivial_list = find_nontrivial_knot(grid_diagram_list, 8)
-    pickle.dump(nontrivial_list, open("data/nontrivial_knot_list_" + str(leaf_num) + ".p", "wb"))
+    # nontrivial_list = find_nontrivial_knot(grid_diagram_list, 8)
+    # pickle.dump(nontrivial_list, open("data/nontrivial_knot_list_" + str(leaf_num) + ".p", "wb"))
     # nontrivial_list = pickle.load(open("data/nontrivial_knot_list_" + str(leaf_num) + ".p", "rb")) 
 
     # eq_list = find_equality_knot(leaf_num, grid_diagram_list, lower_bound = 7)
     
-    print("Number of nontrivial knots: ", len(nontrivial_list))
+    # print("Number of nontrivial knots: ", len(nontrivial_list))
     # print("Number of eq knots: ", len(eq_list))
 
     # URnonnull_list = find_URnonnull_knot(leaf_num, [g[0] for g in nontrivial_list])
     # print("Number of URnonnull knots: ", len(URnonnull_list))
 
-    LLnonnull_list = find_LLnonnull_knot(leaf_num, [g[0] for g in nontrivial_list])
+    # LLnonnull_list = find_LLnonnull_knot(leaf_num, [g[0] for g in nontrivial_list])
+    # print("Number of LLnonnull knots: ", len(LLnonnull_list))
+
+    transverse = CDLL('transverse_'+str(leaf_num)+'.dylib')
+
+    tree_sorted_list = [[] for i in range(2 ** leaf_num)]  # can be list of pointer
+    for t in tree_list_ready:
+        n_sign = t.n_sign
+        n_sign_index = 0
+        for i in range(leaf_num):
+            n_sign_index += (2 ** i) * n_sign[i]
+        tree_sorted_list[n_sign_index].append(t)
+
+    LLnonnull_list = []
+    bar = Bar("Searching LL non null...", fill='$', max = 2 ** leaf_num // 16, suffix = '%(percent)d%% --- %(elapsed)ds')
+    for k in range(5, len(tree_sorted_list), 16):  # We assume that the first four signs must be +-+-
+        # can be paralleled
+        s = tree_sorted_list[k]
+        length = len(s)
+        bar.next()
+        for i in range(length):
+            u = s[i]  # upper tree
+            for j in range(i + 1, length):
+                l = s[j]  # lower tree
+                td = TreeDiagram(u, l)
+                if td.isreduced() == True:
+                    grid = td.get_grid_diagram()
+                    if grid.is_nontrivial_knot(min_grid_num=8)==True:
+                        Xlist = [i+1 for i in grid.rotate_clockwise().flip().Xlist]
+                        Olist = [i+1 for i in grid.rotate_clockwise().flip().Olist]
+                        transverse.change_Xs((c_byte * (leaf_num*2))(*Xlist))
+                        transverse.change_Os((c_byte * (leaf_num*2))(*Olist))
+                        if transverse.is_LLnull() == 0:
+                            LLnonnull_list.append(grid)
+                            pickle.dump(grid, open("data/LLnonnull_list_" + str(leaf_num) + ".p", "ab"))
+                        else:
+                            pass
+                    else:
+                        pass
+                else:
+                    pass
+    print()
     print("Number of LLnonnull knots: ", len(LLnonnull_list))
 
 if __name__ == '__main__':
